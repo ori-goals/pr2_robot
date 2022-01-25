@@ -178,7 +178,107 @@ def check_ipmi():
         diag_msgs.append('Exception')
 
     return diag_vals, diag_msgs, diag_level
+
+# Get values from lmsensors
+def check_lmsensors():
+    diag_vals = []
+    diag_msgs = []
+    diag_level = DiagnosticStatus.OK
+
+    try:
+        p = subprocess.Popen('sensors -u',
+                             stdout = subprocess.PIPE,
+                             stderr = subprocess.PIPE, shell = True)
+        stdout, stderr = p.communicate()
+        retcode = p.returncode
+                        
+        if retcode != 0:
+            diag_level = DiagnosticStatus.ERROR
+            diag_msgs = [ 'lmsensors Error' ]
+            diag_vals = [ KeyValue(key = 'IPMI Error', value = stderr) ]
+            return diag_vals, diag_msgs, diag_level
+
+        lines = stdout.decode("utf-8").split('\n')
+        if len(lines) == 0:
+            diag_vals = [ KeyValue(key = 'lmsensors status', value = 'No output') ]
+
+            diag_msgs = [ 'No lmsensors response' ]
+            diag_level = DiagnosticStatus.ERROR
+
+            return diag_vals, diag_msgs, diag_level
+
+        getting_dev_name = True
+        current_dev_name = None
+        current_adapter_name = None
+        current_object_name = None
+        devices = {}
+        for line in lines:
+            if line == "":
+                getting_dev_name = True
+                continue
+            if getting_dev_name:
+                if line != "":
+                    current_dev_name = line
+                    devices[current_dev_name] = {}
+                    getting_dev_name = False
+                continue
+            if line.startswith("Adapter: "):
+                current_adapter_name = line[len("Adapter: "):]
+                devices[current_dev_name][current_adapter_name] = {}
+                continue
+            if line.endswith(":"):
+                current_object_name = line[:-1]
+                devices[current_dev_name][current_adapter_name][current_object_name] = {}
+                continue
+            if line.startswith("  "):
+                sensor_name, value_pair = line[2:].split("_", 1)
+                value_name, value = value_pair.split(": ")
+                if sensor_name not in devices[current_dev_name][current_adapter_name][current_object_name]:
+                    if sensor_name.startswith("temp"):
+                        unit = " (C)"
+                    elif sensor_name.startswith("curr"):
+                        unit = " (A)"
+                    elif sensor_name.startswith("in"):
+                        unit = " (V)"
+                    else:
+                        unit = ""
+                    devices[current_dev_name][current_adapter_name][current_object_name][sensor_name] = {"unit": unit}
+                devices[current_dev_name][current_adapter_name][current_object_name][sensor_name][value_name] = value
         
+        for device, adapters in devices.items():
+            for adapter, objects in adapters.items():
+                for object_name, sensors in objects.items():
+                    for sensor, values in sensors.items():
+                        if "input" in values:
+                            name = device + "." + object_name + "." + sensor
+                            diag_vals.append(KeyValue(key = name + values["unit"], value = values["input"]))
+                            if "max" in values:
+                                diag_vals.append(KeyValue(key = name + "_max" + values["unit"], value = values["max"]))
+                                if float(values["input"]) >= float(values["max"]):
+                                    diag_level = max(diag_level, DiagnosticStatus.WARN)
+                                    if diag_msgs.count('Device Hot') == 0:
+                                        diag_msgs.append('Device Warm')
+                            if "crit" in values:
+                                diag_vals.append(KeyValue(key = name + "_crit" + values["unit"], value = values["crit"]))
+                                if float(values["input"]) >= float(values["crit"]):
+                                    diag_level = max(diag_level, DiagnosticStatus.ERROR)
+                                    diag_msgs.append('Device Hot')
+                                    # Don't keep CPU Warm in list if CPU is hot
+                                    if diag_msgs.count('Device Warm') > 0:
+                                        idx = diag_msgs.index('Device Warm')
+                                        diag_msgs.pop(idx)
+                            if "min" in values:
+                                diag_vals.append(KeyValue(key = name + "_min" + values["unit"], value = values["min"]))
+                                if float(values["input"]) <= float(values["min"]):
+                                    diag_level = min(diag_level, DiagnosticStatus.WARN)
+                                    diag_msgs.append('Device Cold')
+    except Exception as e:
+        diag_vals.append(KeyValue(key = 'Exception', value = traceback.format_exc()))
+        diag_level = DiagnosticStatus.ERROR
+        diag_msgs.append('Exception')
+
+    return diag_vals, diag_msgs, diag_level
+
 
 ##\brief Check CPU core temps 
 ##
@@ -525,6 +625,7 @@ class CPUMonitor():
         self._mutex = threading.Lock()
 
         self._check_ipmi = rospy.get_param('~check_ipmi_tool', True)
+        self._check_lmsensors = rospy.get_param('~check_lmsensors', True)
         self._enforce_speed = rospy.get_param('~enforce_clock_speed', True)
 
         self._check_core_temps = rospy.get_param('~check_core_temps', False)
@@ -697,6 +798,12 @@ class CPUMonitor():
             diag_vals.extend(ipmi_vals)
             diag_msgs.extend(ipmi_msgs)
             diag_level = max(diag_level, ipmi_level)
+
+        if self._check_lmsensors:
+            lmsensors_vals, lmsensors_msgs, lmsensors_level = check_lmsensors()
+            diag_vals.extend(lmsensors_vals)
+            diag_msgs.extend(lmsensors_msgs)
+            diag_level = max(diag_level, lmsensors_level)
 
         if self._check_core_temps:
             core_vals, core_msgs, core_level = check_core_temps(self._temp_vals)
