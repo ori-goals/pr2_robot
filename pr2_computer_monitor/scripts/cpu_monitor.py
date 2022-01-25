@@ -247,7 +247,7 @@ def check_lmsensors():
         
         for device, adapters in devices.items():
             for adapter, objects in adapters.items():
-                for object_name, sensors in objects.items():
+                for object_name, sensors in sorted(objects.items()):
                     for sensor, values in sensors.items():
                         if "input" in values:
                             name = device + "." + object_name + "." + sensor
