@@ -253,14 +253,14 @@ def check_lmsensors():
                             name = device + "." + object_name + "." + sensor
                             diag_vals.append(KeyValue(key = name + values["unit"], value = values["input"]))
                             if "max" in values:
-                                diag_vals.append(KeyValue(key = name + "_max" + values["unit"], value = values["max"]))
                                 if float(values["input"]) >= float(values["max"]):
+                                    diag_vals.append(KeyValue(key = name + "_max" + values["unit"], value = values["max"]))
                                     diag_level = max(diag_level, DiagnosticStatus.WARN)
                                     if diag_msgs.count('Device Hot') == 0:
                                         diag_msgs.append('Device Warm')
                             if "crit" in values:
-                                diag_vals.append(KeyValue(key = name + "_crit" + values["unit"], value = values["crit"]))
                                 if float(values["input"]) >= float(values["crit"]):
+                                    diag_vals.append(KeyValue(key = name + "_crit" + values["unit"], value = values["crit"]))
                                     diag_level = max(diag_level, DiagnosticStatus.ERROR)
                                     diag_msgs.append('Device Hot')
                                     # Don't keep CPU Warm in list if CPU is hot
@@ -268,8 +268,8 @@ def check_lmsensors():
                                         idx = diag_msgs.index('Device Warm')
                                         diag_msgs.pop(idx)
                             if "min" in values:
-                                diag_vals.append(KeyValue(key = name + "_min" + values["unit"], value = values["min"]))
                                 if float(values["input"]) <= float(values["min"]):
+                                    diag_vals.append(KeyValue(key = name + "_min" + values["unit"], value = values["min"]))
                                     diag_level = min(diag_level, DiagnosticStatus.WARN)
                                     diag_msgs.append('Device Cold')
     except Exception as e:
