@@ -544,7 +544,7 @@ def check_mpstat(core_count = -1):
                     core_level = DiagnosticStatus.WARN
                 if usage > 110.0:
                     core_level = DiagnosticStatus.ERROR
-                vals.append(KeyValue(key = 'CPU %s Status' % cpu_name, value = load_dict[core_level]))
+                #vals.append(KeyValue(key = 'CPU %s Status' % cpu_name, value = load_dict[core_level]))
 
             vals.append(KeyValue(key = 'CPU %s' % cpu_name, value = "{:.1f}".format(usage)))
             #vals.append(KeyValue(key = 'CPU %s User' % cpu_name, value = user))
