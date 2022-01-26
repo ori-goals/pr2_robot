@@ -500,13 +500,13 @@ def check_mpstat(core_count = -1):
 
         # Check which column '%idle' is, #4539
         # mpstat output changed between 8.06 and 8.1
-        rows = stdout.split('\n')
+        rows = stdout.decode('utf-8').split('\n')
         col_names = rows[2].split()
         idle_col = -1 if (len(col_names) > 2 and col_names[-1] == '%idle') else -2
 
         num_cores = 0
         cores_loaded = 0
-        for index, row in enumerate(stdout.split('\n')):
+        for index, row in enumerate(stdout.decode('utf-8').split('\n')):
             if index < 3:
                 continue
             
