@@ -80,7 +80,7 @@ def check_ipmi():
             diag_vals = [ KeyValue(key = 'IPMI Error', value = stderr) ]
             return diag_vals, diag_msgs, diag_level
 
-        lines = stdout.split('\n')
+        lines = stdout.decode('utf-8').split('\n')
         if len(lines) < 2:
             diag_vals = [ KeyValue(key = 'ipmitool status', value = 'No output') ]
 
@@ -105,7 +105,7 @@ def check_ipmi():
             if words[0].startswith('CPU') and words[0].strip().endswith('Temp'):
                 if words[1].strip().endswith('degrees C'):
                     tmp = ipmi_val.rstrip(' degrees C').lstrip()
-                    if unicode(tmp).isnumeric():
+                    if tmp.isnumeric():
                         temperature = float(tmp)
                         diag_vals.append(KeyValue(key = name + ' (C)', value = tmp))
 
@@ -133,7 +133,7 @@ def check_ipmi():
                     diag_vals.append(KeyValue(key = name + ' (C)', value = tmp))
                     # Give temp warning
                     dev_name = name.split()[0]
-                    if unicode(tmp).isnumeric():
+                    if tmp.isnumeric():
                         temperature = float(tmp)
 
                         if temperature >= 60 and temperature < 75:
@@ -153,7 +153,7 @@ def check_ipmi():
             if (name.startswith('CPU') and name.endswith('Fan')) or name == 'MB Fan':
                 if ipmi_val.endswith('RPM'):
                     rpm = ipmi_val.rstrip(' RPM').lstrip()
-                    if unicode(rpm).isnumeric():
+                    if rpm.isnumeric():
                         if int(rpm) == 0:
                             diag_level = max(diag_level, DiagnosticStatus.ERROR)
                             diag_msgs.append('CPU Fan Off')
@@ -306,8 +306,8 @@ def check_core_temps(sys_temp_strings):
                           KeyValue(key = 'Output', value = stdout) ]
             return diag_vals, diag_msgs, diag_level
   
-        tmp = stdout.strip()
-        if unicode(tmp).isnumeric():
+        tmp = stdout.decode('utf-8').strip()
+        if tmp.isnumeric():
             temp = float(tmp) / 1000
             diag_vals.append(KeyValue(key = 'Core %d Temp' % index, value = str(temp)))
 
@@ -344,14 +344,14 @@ def check_clock_speed(enforce_speed):
             
             return (vals, msgs, lvl)
 
-        for index, ln in enumerate(stdout.split('\n')):
+        for index, ln in enumerate(stdout.decode('utf-8').split('\n')):
             words = ln.split(':')
             if len(words) < 2:
                 continue
 
             speed = words[1].strip().split('.')[0] # Conversion to float doesn't work with decimal
             vals.append(KeyValue(key = 'Core %d MHz' % index, value = speed))
-            if unicode(speed).isnumeric():
+            if speed.isnumeric():
                 mhz = float(speed)
                 
                 if mhz < 2240 and mhz > 2150:
@@ -397,7 +397,7 @@ def check_uptime(load1_threshold, load5_threshold):
             vals.append(KeyValue(key = 'uptime Failed', value = stderr))
             return DiagnosticStatus.ERROR, vals
 
-        upvals = stdout.split()
+        upvals = stdout.decode('utf-8').split()
         load1 = upvals[-3].rstrip(',')
         load5 = upvals[-2].rstrip(',')
         load15 = upvals[-1]
@@ -442,7 +442,7 @@ def check_memory():
             values.append(KeyValue(key = "\"free -m\" Call Error", value = str(retcode)))
             return DiagnosticStatus.ERROR, values
  
-        rows = stdout.split('\n')
+        rows = stdout.decode('utf-8').split('\n')
         data = rows[1].split()
         total_mem = data[1]
         used_mem = data[2]
@@ -584,7 +584,7 @@ def get_core_temp_names():
             rospy.logerr('Error find core temp locations: %s' % stderr)
             return []
         
-        for ln in stdout.split('\n'):
+        for ln in stdout.decode('utf-8').split('\n'):
             temp_vals.append(ln.strip())
         
         return temp_vals
